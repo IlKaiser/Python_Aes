@@ -51,7 +51,7 @@ rc = (
     0xD4, 0xB3, 0x7D, 0xFA, 0xEF, 0xC5, 0x91, 0x39,
 )
 #128 bit plaintext and key, form ascii code
-plaintext=list(b'c'*1000000)
+plaintext=b'aiaiaia'*1000000
 key=list(b'keyy'*4)
 ### PKCS#7 padding
 def pad(text):
@@ -79,6 +79,7 @@ def blocks2text(blocks,padding=False):
     
 ## From 16 bit block to matrix
 def block2matrix(block):
+    assert len(block) == 16
     matrix = []
     for i in range (4):
         row = []
@@ -94,75 +95,56 @@ def matrix2block(matrix):
     return block
 
 def byte_substitution(matrix):
-    to_ret = []
     for i in range(4):
-        row = []
         for j in range(4):
-            row.append(s_box[matrix[i][j]])
-        to_ret.append(row)
-    return to_ret
+            matrix[i][j]=s_box[matrix[i][j]]
 def inv_byte_substitution(matrix):
-    to_ret = []
     for i in range(4):
-        row = []
         for j in range(4):
-            row.append(inv_s_box[matrix[i][j]])
-        to_ret.append(row)
-    return to_ret
+            matrix[i][j]=inv_s_box[matrix[i][j]]
 
 def shift_rows(matrix):
-    ret =[]
     row1=[matrix[1][1],matrix[1][2],matrix[1][3],matrix[1][0]]
     row2=[matrix[2][2],matrix[2][3],matrix[2][0],matrix[2][1]]
     row3=[matrix[3][3],matrix[3][0],matrix[3][1],matrix[3][2]]
-    ret.append(matrix[0])
-    ret.append(row1)
-    ret.append(row2)
-    ret.append(row3)
-    return ret
+    matrix[1]=row1
+    matrix[2]=row2
+    matrix[3]=row3
 def inv_shift_rows(matrix):
-    ret =[]
     row1=[matrix[1][3],matrix[1][0],matrix[1][1],matrix[1][2]]
     row2=[matrix[2][2],matrix[2][3],matrix[2][0],matrix[2][1]]
     row3=[matrix[3][1],matrix[3][2],matrix[3][3],matrix[3][0]]
-    ret.append(matrix[0])
-    ret.append(row1)
-    ret.append(row2)
-    ret.append(row3)
-    return ret
+    matrix[1]=row1
+    matrix[2]=row2
+    matrix[3]=row3
 
 xtime = lambda a: (((a << 1) ^ 0x1B) & 0xFF) if (a & 0x80) else (a << 1)
 
 def mix_single_column(row):
     # see Sec 4.1.2 in The Design of Rijndael
-    to_ret=[]
     t = row[0] ^ row[1] ^ row[2] ^ row[3]
     u = row[0]
-    to_ret.append((t ^ xtime(row[0] ^ row[1]))^row[0])
-    to_ret.append((t ^ xtime(row[1] ^ row[2]))^row[1])
-    to_ret.append((t ^ xtime(row[2] ^ row[3]))^row[2])
-    to_ret.append((t ^ xtime(row[3] ^ u))^row[3])
-    return to_ret
+    row[0]^=(t ^ xtime(row[0] ^ row[1]))
+    row[1]^=(t ^ xtime(row[1] ^ row[2]))
+    row[2]^=(t ^ xtime(row[2] ^ row[3]))
+    row[3]^=(t ^ xtime(row[3] ^ u))
+    
 
 
 def mix_columns(matrix):
-    to_ret = []
     for i in range(4):
-        to_ret.append(mix_single_column(matrix[i]))
-    return to_ret
+        mix_single_column(matrix[i])
 def inv_mix_columns(matrix):
     # see Sec 4.1.3 in The Design of Rijndael
-    to_ret= []
     for i in range(4):
-        row = []
         u = xtime(xtime(matrix[i][0] ^ matrix[i][2]))
         v = xtime(xtime(matrix[i][1] ^ matrix[i][3]))
-        row.append(matrix[i][0] ^ u)
-        row.append(matrix[i][1] ^ v)
-        row.append(matrix[i][2] ^ u)
-        row.append(matrix[i][3] ^ v)
-        to_ret.append(row)
-    return mix_columns(to_ret)
+        matrix[i][0] ^= u
+        matrix[i][1] ^= v
+        matrix[i][2] ^= u
+        matrix[i][3] ^= v
+
+    mix_columns(matrix)
 
 def g(word,round):
     to_ret=[]
@@ -206,26 +188,29 @@ def key_schedule(k_matrix):
     return expanded_key
 
 def key_addition(t_matrix,k_matrix):
-    ret_matrix = []
     for i in range(4):
-        ret_matrix.append(xor_word(t_matrix[i],k_matrix[i]))
-    return ret_matrix
+        t_matrix[i]=xor_word(t_matrix[i],k_matrix[i])
 
 def aes128_encrypt(plaintext,key):
-    text_blocks= text2blocks(plaintext)
+    if type(plaintext) is str:
+        plaintext=list(bytearray(plaintext,encoding='UTF-8'))
+    if type(plaintext) is not list:
+        plaintext = list(plaintext)
+    text_blocks= text2blocks(plaintext,True)
     key_matrix = block2matrix(text2blocks(key)[0])
     subkeys    = key_schedule(key_matrix)
     encrypted_blocks = []
     for block in text_blocks:
-        text_matrix = key_addition(block2matrix(block),[subkeys[0],subkeys[1],subkeys[2],subkeys[3]])
+        text_matrix = block2matrix(block)
+        key_addition(text_matrix,[subkeys[0],subkeys[1],subkeys[2],subkeys[3]])
         for i in range(1,11):
-            sub_matrix   = byte_substitution(text_matrix)
-            shift_matrix = shift_rows(sub_matrix)
+            byte_substitution(text_matrix)
+            shift_rows(text_matrix)
             if i < 10:
-                mix_matrix   = mix_columns(shift_matrix)
-                text_matrix  = key_addition(mix_matrix,[subkeys[i*4+0],subkeys[i*4+1],subkeys[i*4+2],subkeys[i*4+3]]) 
+                mix_columns(text_matrix)
+                key_addition(text_matrix,[subkeys[i*4+0],subkeys[i*4+1],subkeys[i*4+2],subkeys[i*4+3]]) 
             else:
-                text_matrix  = key_addition(shift_matrix,[subkeys[i*4+0],subkeys[i*4+1],subkeys[i*4+2],subkeys[i*4+3]])
+                key_addition(text_matrix,[subkeys[i*4+0],subkeys[i*4+1],subkeys[i*4+2],subkeys[i*4+3]])
                 encrypted_blocks.append(matrix2block(text_matrix))
     encrypted_text=blocks2text(encrypted_blocks)
     return encrypted_text
@@ -237,53 +222,21 @@ def aes128_decrypt(encrypted_text,key):
     for block in text_blocks:
         sub_matrix = block2matrix(block)
         for i in range(10,-1,-1):
-            text_matrix  = key_addition(sub_matrix,[subkeys[i*4+0],subkeys[i*4+1],subkeys[i*4+2],subkeys[i*4+3]]) 
+            key_addition(sub_matrix,[subkeys[i*4+0],subkeys[i*4+1],subkeys[i*4+2],subkeys[i*4+3]]) 
             if i > 0: 
                 if i < 10:
-                    mix_matrix   = inv_mix_columns(text_matrix)
-                    shift_matrix = inv_shift_rows(mix_matrix)
-                    sub_matrix   = inv_byte_substitution(shift_matrix)
+                    inv_mix_columns(sub_matrix)
+                    inv_shift_rows(sub_matrix)
+                    inv_byte_substitution(sub_matrix)
                 else:
-                    shift_matrix = inv_shift_rows(text_matrix)
-                    sub_matrix = inv_byte_substitution(shift_matrix)
-            else:
-                sub_matrix=text_matrix
+                   inv_shift_rows(sub_matrix)
+                   inv_byte_substitution(sub_matrix)
         decrypted_blocks.append(matrix2block(sub_matrix))
-    decrypted_text=blocks2text(decrypted_blocks)
-    return decrypted_text
+    decrypted_text=blocks2text(decrypted_blocks,True)
+    return bytes(decrypted_text)
     
-'''
-print(plaintext)
-blocks=text2blocks(plaintext,True)
-print(blocks)
-print(blocks2text(blocks,padding=True))
-print(plaintext==blocks2text(blocks,padding=True))
-print(block2matrix(blocks[0]))
-matrix=block2matrix(blocks[0])
-print(matrix)
-sub=byte_substitution(matrix)
-print(sub)
-print(inv_byte_substitution(sub))
-print(matrix==inv_byte_substitution(sub))
-shift=shift_rows(matrix)
-unshift=inv_shift_rows(shift)
-print(shift)
-print(unshift)
-print(unshift==matrix)
-mix=mix_columns(shift)
-print(mix)
-inv=inv_mix_columns(mix)
-print(inv)
-print(inv==shift)
 
-print('Ksched')
-bk=text2blocks(key)
-mk=block2matrix(bk[0])
-print(mk)
-ks=key_schedule(mk)
-print("Ks len"+str(len(ks)))
-print(ks)
-'''
+
 
 import time
 
@@ -293,8 +246,19 @@ start = time.time()
 enc=aes128_encrypt(plaintext,key)
 #print("e_text: "+ str(enc))
 dec=aes128_decrypt(enc,key)
-#print("d_text: "+ str(dec))
+print("d_text: "+ str(dec))
 
 end = time.time()
 print(end - start)
 print(dec==plaintext)
+from Crypto.Cipher import AES
+key = b'Sixteen byte key'
+cipher = AES.new(key, AES.MODE_EAX)
+nonce = cipher.nonce
+start = time.time()
+ciphertext, tag = cipher.encrypt_and_digest(plaintext)
+cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
+plain = cipher.decrypt(ciphertext)
+end = time.time()
+print(end-start)
+print(plaintext==plain)
