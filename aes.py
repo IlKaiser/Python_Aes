@@ -51,8 +51,8 @@ rc = (
     0xD4, 0xB3, 0x7D, 0xFA, 0xEF, 0xC5, 0x91, 0x39,
 )
 #128 bit plaintext and key, form ascii code
-plaintext=list(b'ciao'*4)
-key=list(b'k'*16)
+plaintext=list(b'c'*1000000)
+key=list(b'keyy'*4)
 ### PKCS#7 padding
 def pad(text):
     check=len(text) % 16
@@ -61,7 +61,7 @@ def pad(text):
 def remove_padding(text):
     padding_len=text[-1]
     return text[0:-padding_len]
-### From plaintext to 16 bit block for encrypt
+### From plaintext to 16 byte block for encrypt
 def text2blocks(text,add_padding=False):
     blocks=[]
     if add_padding:
@@ -284,9 +284,17 @@ ks=key_schedule(mk)
 print("Ks len"+str(len(ks)))
 print(ks)
 '''
-print("plain: "+str(plaintext))
-print("key: "+ str(key))
+
+import time
+
+start = time.time()
+#print("plain: "+str(plaintext))
+#print("key: "+ str(key))
 enc=aes128_encrypt(plaintext,key)
-print("e_text: "+ str(enc))
+#print("e_text: "+ str(enc))
 dec=aes128_decrypt(enc,key)
-print("d_text: "+ str(dec))
+#print("d_text: "+ str(dec))
+
+end = time.time()
+print(end - start)
+print(dec==plaintext)
