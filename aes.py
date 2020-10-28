@@ -71,8 +71,9 @@ def text2blocks(text,add_padding=False):
     return blocks
 
 ## From blocks to text
+flatten = lambda t: [item for sublist in t for item in sublist]
 def blocks2text(blocks,padding=False):
-    to_ret=list(sum(blocks,[]))
+    to_ret=flatten(blocks)
     if padding:
         to_ret=remove_padding(to_ret)
     return to_ret
@@ -246,11 +247,12 @@ start = time.time()
 enc=aes128_encrypt(plaintext,key)
 #print("e_text: "+ str(enc))
 dec=aes128_decrypt(enc,key)
-print("d_text: "+ str(dec))
+#print("d_text: "+ str(dec))
 
 end = time.time()
 print(end - start)
 print(dec==plaintext)
+
 from Crypto.Cipher import AES
 key = b'Sixteen byte key'
 cipher = AES.new(key, AES.MODE_EAX)
