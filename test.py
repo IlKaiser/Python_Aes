@@ -170,20 +170,28 @@ fig,ax = plt.subplots(1, 3)
 
 ax[0].bar(X, my1k, 0.35, label='myaes')
 ax[0].bar(X + 0.35, c1k, 0.35,label='pycrypto')
-ax[0].set_xticks(X + 0.35 / 2, ('ECB', 'CBC', 'CFB', 'OFB', 'CTR'))
+
+
 ax[0].legend(loc='best')
 ax[0].set_title("1k test (lower is better)")
 ax[1].bar(X, my100k, 0.35, label='myaes')
 ax[1].bar(X + 0.35, c100k, 0.35,label='pycrypto')
-ax[1].set_xticks(X + 0.35 / 2, ('ECB', 'CBC', 'CFB', 'OFB', 'CTR'))
+
 ax[1].legend(loc='best')
 ax[1].set_title("100k test (lower is better)")
 ax[2].bar(X, my10M, 0.35, label='myaes')
 ax[2].bar(X + 0.35, c10M, 0.35,label='pycrypto')
-ax[2].set_xticks(X + 0.35 / 2, ('ECB', 'CBC', 'CFB', 'OFB', 'CTR'))
+
+
 ax[2].legend(loc='best')
 ax[2].set_title("10M test (lower is better)")
 
-#plt.setp(ax, xticks=['ECB', 'CBC', 'CFB', 'OFB', 'CTR'])
+plt.sca(ax[0])
+plt.xticks([0,1,2,3,4], ['ECB', 'CBC', 'CFB', 'OFB', 'CTR'])
+plt.sca(ax[1])
+plt.xticks([0,1,2,3,4], ['ECB', 'CBC', 'CFB', 'OFB', 'CTR'])
+plt.sca(ax[2])
+plt.xticks([0,1,2,3,4], ['ECB', 'CBC', 'CFB', 'OFB', 'CTR'])
+
 
 plt.show()
