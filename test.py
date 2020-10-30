@@ -161,7 +161,6 @@ my10M,c10M=test(b'a'*10000000,b'k'*16)
 
 import numpy as np
 import matplotlib.pyplot as plt
-data = [my128,c128]
 
 X = np.arange(5)
 
